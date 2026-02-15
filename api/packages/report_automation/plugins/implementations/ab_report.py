@@ -6,6 +6,7 @@ from typing import Dict
 import logging
 
 from ..base import BaseReportPlugin, register_plugin
+from ..constants import WEEKLY_BOUNDARIES
 from ...domain.models import ProcessedData
 
 logger = logging.getLogger(__name__)
@@ -23,14 +24,6 @@ TEMPLATE_MAPPING = {
     "[S] 12d A: freebet + 100fs": "12d",
     "[S] 12d b: 150%sport + 100fs": "12d",
 }
-
-WEEKLY_BOUNDARIES = [
-    ("2025-12-29", "2026-01-04"),  # Week 1
-    ("2026-01-05", "2026-01-11"),  # Week 2
-    ("2026-01-12", "2026-01-18"),  # Week 3
-    ("2026-01-19", "2026-01-25"),  # Week 4
-    ("2026-01-26", "2026-02-01"),  # Week 5
-]
 
 TIME_PERIODS = ["10m", "1h", "1d", "3d", "5d", "7d", "9d", "12d"]
 METRICS = ["sent", "delivered", "opened", "clicked", "converted", "unsubscribed"]
@@ -109,8 +102,11 @@ class ABReportPlugin(BaseReportPlugin):
         ws['L2'] = "280% up to 375 EUR"
         
         # Week headers
-        week_labels = ["week 1 29.12", "week 2 05.01", "week 3 12.01", "week 4 19.01", "week 5 26.01"]
-        week_cols = ['I', 'L', 'O', 'R', 'U']
+        week_labels = [
+            "week 1 29.12", "week 2 05.01", "week 3 12.01", "week 4 19.01",
+            "week 5 26.01", "week 6 02.02", "week 7 09.02", "week 8 16.02"
+        ]
+        week_cols = ['I', 'L', 'O', 'R', 'U', 'X', 'AA', 'AD']
         for col, label in zip(week_cols, week_labels):
             ws[f'{col}3'] = label
         ws['H3'] = "Total"
@@ -153,7 +149,7 @@ class ABReportPlugin(BaseReportPlugin):
         total_value = 0
         week_values = []
         
-        for week_key in ['week1', 'week2', 'week3', 'week4', 'week5']:
+        for week_key in ['week1', 'week2', 'week3', 'week4', 'week5', 'week6', 'week7', 'week8']:
             week_df = period_data.get(week_key)
             if week_df is not None and not week_df.empty and metric_col in week_df.columns:
                 value = week_df[metric_col].iloc[0]
@@ -170,5 +166,20 @@ class ABReportPlugin(BaseReportPlugin):
             ws[f'H{row}'] = total_value
         
         # Weekly columns
-        for week_val, col in zip(week_values, ['I', 'L', 'O', 'R', 'U']):
+        for week_val, col in zip(week_values, ['I', 'L', 'O', 'R', 'U', 'X', 'AA', 'AD']):
             ws[f'{col}{row}'] = week_val
+    
+    def execute(self, input_paths, output_path, existing_excel=None, replace_week=None):
+        """Execute report generation."""
+        # Handle both single path and list of paths
+        if isinstance(input_paths, list):
+            if len(input_paths) != 1:
+                raise ValueError("a-b-report only supports single CSV file")
+            csv_path = input_paths[0]
+        else:
+            csv_path = input_paths
+        
+        self.validate_input(csv_path)
+        data = self.process_csv(csv_path)
+        report_data = self.transform_data(data)
+        self.generate_excel(report_data, output_path)

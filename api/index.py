@@ -120,14 +120,8 @@ async def generate_report(
 
         # Execute plugin logic
         try:
-            if plugin.supports_multiple_files:
-                # Pass list of paths if supported, even if only one file
-                plugin.execute(input_paths, output_path, existing_excel_path, replace_week)
-            elif len(input_paths) == 1:
-                # Only pass single path if multiple not supported
-                plugin.execute(input_paths[0], output_path)
-            else:
-                 raise HTTPException(status_code=400, detail="Multiple files provided but this report type only supports one file.")
+            # Always pass list of paths for consistency
+            plugin.execute(input_paths, output_path, existing_excel_path, replace_week)
                  
         except Exception as e:
             logger.error(f"Error executing plugin: {e}", exc_info=True)

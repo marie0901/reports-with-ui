@@ -8,27 +8,26 @@ from openpyxl import Workbook, load_workbook
 import copy
 
 from ..base import BaseReportPlugin, register_plugin
+from ..constants import WEEKLY_BOUNDARIES
 
 logger = logging.getLogger(__name__)
 
 AWOL_MAPPINGS = {"Day 1": "1d", "Day 3": "3d", "Day 5": "5d", "Day 10": "10d", "Day 15": "15d", "Day 20": "20d", "Day 30": "30d", "Day 40": "40d"}
-WEEKLY_BOUNDARIES = [
-    ("2025-12-29", "2026-01-04"),
-    ("2026-01-05", "2026-01-11"),
-    ("2026-01-12", "2026-01-18"),
-    ("2026-01-19", "2026-01-25"),
-    ("2026-01-26", "2026-02-01"),
-    ("2026-02-02", "2026-02-08"),
-]
 METRICS = ["sent", "delivered", "opened", "clicked", "converted", "unsubscribed"]
-WEEK_COLUMNS = {'week1': 'K', 'week2': 'J', 'week3': 'I', 'week4': 'H', 'week5': 'G', 'week6': 'F'}
+WEEK_COLUMNS = {
+    'week1': 'Q', 'week2': 'P', 'week3': 'O', 'week4': 'N', 'week5': 'M', 'week6': 'L', 'week7': 'K', 'week8': 'J'
+}
 TIMING_BLOCKS = {
     "1d": {"inactive7": [3, 8], "inactive14": [11, 16], "inactive22": [19, 24], "inactive31": [27, 32]},
     "10d": {"inactive7": [35, 40], "inactive14": [43, 48], "inactive22": [51, 56], "inactive31": [59, 64]},
 }
 WEEK_MAPPINGS = {
-    'source': {'01': 'K', '02': 'J', '03': 'I', '04': 'H', '05': 'G', '06': 'F'},
-    'target': {'01': 'BF', '02': 'BE', '03': 'BD', '04': 'BC', '05': 'BB', '06': 'BA'}
+    'source': {
+        '01': 'Q', '02': 'P', '03': 'O', '04': 'N', '05': 'M', '06': 'L', '07': 'K', '08': 'J'
+    },
+    'target': {
+        '01': 'BF', '02': 'BE', '03': 'BD', '04': 'BC', '05': 'BB', '06': 'BA', '07': 'AZ', '08': 'AY'
+    }
 }
 
 SHEET_MAPPINGS = {
@@ -106,6 +105,7 @@ class AWOLPlugin(BaseReportPlugin):
         ws = wb.active
         
         week_headers = {
+            'week8': ("08", "16.02"), 'week7': ("07", "09.02"),
             'week6': ("06", "02.02"), 'week5': ("05", "26.01"), 'week4': ("04", "19.01"),
             'week3': ("03", "12.01"), 'week2': ("02", "05.01"), 'week1': ("01", "29.12")
         }

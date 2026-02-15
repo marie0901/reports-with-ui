@@ -9,8 +9,16 @@ from openpyxl.utils import get_column_letter
 import copy
 
 from ..base import BaseReportPlugin, register_plugin
+from ..constants import WEEKLY_BOUNDARIES
 
 logger = logging.getLogger(__name__)
+
+# Campaign-based section detection mappings
+CAMPAIGN_SECTION_MAPPINGS = {
+    "casino+sport A/B Reg_No_Dep": {"section": "casino", "start_row": 3, "label": "casino+sport A/B Reg_No_Dep"},
+    "Ret 1 dep [SPORT] ⚽️": {"section": "retention", "start_row": 75, "label": "Ret 1 dep [SPORT] ⚽️"},
+    "Ret 2 dep [SPORT] ⚽️": {"section": "retention", "start_row": 123, "label": "Ret 2 dep [SPORT] ⚽️"},
+}
 
 # Template mappings
 RETENTION_MAPPINGS = {"Day 3": "3d", "Day 4": "4d", "Day 6": "6d", "Day 8": "8d", "Day 10": "10d"}
@@ -26,17 +34,6 @@ CASINOSPORT_MAPPINGS = {
     "[S] 12d A: freebet + 100fs": "12d",
     "[S] 12d b: 150%sport + 100fs": "12d",
 }
-
-WEEKLY_BOUNDARIES = [
-    ("2025-12-29", "2026-01-04"),  # Week 1
-    ("2026-01-05", "2026-01-11"),  # Week 2
-    ("2026-01-12", "2026-01-18"),  # Week 3
-    ("2026-01-19", "2026-01-25"),  # Week 4
-    ("2026-01-26", "2026-02-01"),  # Week 5
-    ("2026-02-02", "2026-02-08"),  # Week 6
-    ("2026-02-09", "2026-02-15"),  # Week 7
-    ("2026-02-16", "2026-02-22"),  # Week 8
-]
 
 METRICS = ["sent", "delivered", "opened", "clicked", "converted", "unsubscribed"]
 WEEK_COLUMNS = {
@@ -91,6 +88,38 @@ class CasinoRetPlugin(BaseReportPlugin):
         self.existing_excel = None
         self.replace_week = None
     
+    def _detect_section_by_campaign(self, data: pd.DataFrame, file_name: str) -> Dict[str, Any]:
+        """Detect section based on campaign name."""
+        if data.empty or 'campaign_name' not in data.columns:
+            logger.error(f"Cannot detect section for {file_name}: missing campaign_name column")
+            return None
+        
+        campaign_name = data['campaign_name'].iloc[0]
+        campaign_lower = campaign_name.lower()
+        
+        # Exact match first
+        if campaign_name in CAMPAIGN_SECTION_MAPPINGS:
+            config = CAMPAIGN_SECTION_MAPPINGS[campaign_name]
+            logger.info(f"Campaign detected: '{campaign_name}' → {config['label']} (row {config['start_row']})")
+            return config
+        
+        # Fuzzy match
+        if "casino+sport" in campaign_lower or "a/b" in campaign_lower:
+            config = CAMPAIGN_SECTION_MAPPINGS["casino+sport A/B Reg_No_Dep"]
+            logger.info(f"Campaign detected (fuzzy): '{campaign_name}' → {config['label']} (row {config['start_row']})")
+            return config
+        elif "ret 1 dep" in campaign_lower:
+            config = CAMPAIGN_SECTION_MAPPINGS["Ret 1 dep [SPORT] ⚽️"]
+            logger.info(f"Campaign detected (fuzzy): '{campaign_name}' → {config['label']} (row {config['start_row']})")
+            return config
+        elif "ret 2 dep" in campaign_lower:
+            config = CAMPAIGN_SECTION_MAPPINGS["Ret 2 dep [SPORT] ⚽️"]
+            logger.info(f"Campaign detected (fuzzy): '{campaign_name}' → {config['label']} (row {config['start_row']})")
+            return config
+        
+        logger.error(f"Unknown campaign: '{campaign_name}' in {file_name}. Expected: {list(CAMPAIGN_SECTION_MAPPINGS.keys())}")
+        return None
+    
     def process_csv(self, csv_paths: List[Path]) -> Dict[str, pd.DataFrame]:
         """Read multiple CSV files."""
         data_files = {}
@@ -106,19 +135,18 @@ class CasinoRetPlugin(BaseReportPlugin):
         report_data = {}
         
         for file_name, data in data_files.items():
-            # Determine mapping based on campaign name
-            if not data.empty and 'campaign_name' in data.columns:
-                campaign_name = data['campaign_name'].iloc[0]
-                if 'casino+sport' in campaign_name.lower() or 'a/b' in campaign_name.lower():
-                    mappings = CASINOSPORT_MAPPINGS
-                else:
-                    mappings = RETENTION_MAPPINGS
+            # Detect section by campaign
+            section_config = self._detect_section_by_campaign(data, file_name)
+            
+            if not section_config:
+                logger.warning(f"Skipping {file_name}: unable to detect section")
+                continue
+            
+            # Determine template mappings
+            if section_config["section"] == "casino":
+                mappings = CASINOSPORT_MAPPINGS
             else:
-                # Fallback to filename detection
-                if "casinosport" in file_name.lower() or "ab" in file_name.lower():
-                    mappings = CASINOSPORT_MAPPINGS
-                else:
-                    mappings = RETENTION_MAPPINGS
+                mappings = RETENTION_MAPPINGS
             
             # Filter templates
             filtered = data[data['template_name'].isin(mappings.keys())]
@@ -189,26 +217,29 @@ class CasinoRetPlugin(BaseReportPlugin):
         
         # Populate sections
         for file_name, section_data in report_data.items():
-            # Detect section by checking first campaign in data
-            if section_data:
-                # Get first timing category to check campaign type
-                first_timing = next(iter(section_data.values()), {})
-                if first_timing:
-                    first_week = next(iter(first_timing.values()), pd.DataFrame())
-                    if not first_week.empty and 'template_name' in first_week.columns:
-                        template = first_week['template_name'].iloc[0]
-                        # Check if it's a casino template
-                        if any(casino_key in str(template) for casino_key in ['[S]', 'sport', 'casino', 'FS']):
-                            self._populate_section(ws, section_data, 3, "casino+sport A/B Reg_No_Dep", "casino")
-                            continue
+            # Get original data to access campaign_name
+            original_data = None
+            if hasattr(self, '_original_files'):
+                for path in self._original_files:
+                    if path.name == file_name:
+                        original_data = pd.read_csv(path)
+                        break
             
-            # Fallback to filename detection
-            if "casinosport" in file_name.lower() or "ab" in file_name.lower():
-                self._populate_section(ws, section_data, 3, "casino+sport A/B Reg_No_Dep", "casino")
-            elif "ret" in file_name.lower() and "1" in file_name:
-                self._populate_section(ws, section_data, 75, "Ret 1 dep [SPORT] ⚽️", "retention")
-            elif "ret" in file_name.lower() and "2" in file_name:
-                self._populate_section(ws, section_data, 123, "Ret 2 dep [SPORT] ⚽️", "retention")
+            # Detect section by campaign
+            section_config = None
+            if original_data is not None and not original_data.empty:
+                section_config = self._detect_section_by_campaign(original_data, file_name)
+            
+            if section_config:
+                self._populate_section(
+                    ws,
+                    section_data,
+                    section_config["start_row"],
+                    section_config["label"],
+                    section_config["section"]
+                )
+            else:
+                logger.warning(f"Skipping {file_name}: unable to detect section")
         
         wb.save(output_path)
         logger.info(f"Excel saved: {output_path}")
@@ -367,6 +398,7 @@ class CasinoRetPlugin(BaseReportPlugin):
         """Execute with optional week replacement."""
         self.existing_excel = existing_excel
         self.replace_week = replace_week
+        self._original_files = input_paths  # Store for campaign detection in generate_excel
         
         for path in input_paths:
             self.validate_input(path)

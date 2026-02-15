@@ -6,15 +6,11 @@ The `casino-ret` report type processes marketing campaign data from CSV files an
 1. **Casino & Sport A/B campaigns** - New user signups
 2. **Retention campaigns** - Existing users (1st and 2nd deposits)
 
+**Detection Method:** Campaign-based (uses `campaign_name` column from CSV, not filenames)
+
 ---
 
 ## Source Data Structure (CSV Files)
-
-### CSV File Format
-
-```
-timestamp,timestamp_RFC3339,template_id,template_name,channel,subject,campaign_id,campaign_name,sent,delivered,opened,clicked,converted,bounced,spammed,unsubscribed,suppressed,failed,drafted,topic_unsubscribed
-```
 
 ### Required Columns
 
@@ -22,7 +18,7 @@ timestamp,timestamp_RFC3339,template_id,template_name,channel,subject,campaign_i
 |--------|------|-------------|
 | `timestamp` | Unix timestamp | Campaign send time (seconds since epoch) |
 | `template_name` | String | Template identifier (e.g., "[S] 10 min sport basic wp", "Day 3") |
-| `campaign_name` | String | Campaign identifier (e.g., "casino+sport A/B Reg_No_Dep", "Ret 1 dep [SPORT] ⚽️") |
+| `campaign_name` | String | **Campaign identifier** (e.g., "casino+sport A/B Reg_No_Dep", "Ret 1 dep [SPORT] ⚽️") |
 | `sent` | Integer | Number of emails sent |
 | `delivered` | Integer | Number of emails delivered |
 | `opened` | Integer | Number of emails opened |
@@ -30,22 +26,44 @@ timestamp,timestamp_RFC3339,template_id,template_name,channel,subject,campaign_i
 | `converted` | Integer | Number of conversions |
 | `unsubscribed` | Integer | Number of unsubscribes |
 
-### Input File Types
+---
 
-```mermaid
-graph TD
-    A[CSV Input Files] --> B[abdep.csv]
-    A --> C[ret1dep.csv]
-    A --> D[ret2dep.csv]
-    
-    B --> B1[Casino & Sport A/B<br/>New Signups]
-    C --> C1[Retention 1<br/>1st Deposit Users]
-    D --> D1[Retention 2<br/>2nd Deposit Users]
-    
-    style B fill:#a0a0a0
-    style C fill:#909090
-    style D fill:#808080
+## Campaign-Based Section Detection
+
+### Campaign Mappings
+
+```python
+CAMPAIGN_SECTION_MAPPINGS = {
+    "casino+sport A/B Reg_No_Dep": {
+        "section": "casino",
+        "start_row": 3,
+        "label": "casino+sport A/B Reg_No_Dep"
+    },
+    "Ret 1 dep [SPORT] ⚽️": {
+        "section": "retention",
+        "start_row": 75,
+        "label": "Ret 1 dep [SPORT] ⚽️"
+    },
+    "Ret 2 dep [SPORT] ⚽️": {
+        "section": "retention",
+        "start_row": 123,
+        "label": "Ret 2 dep [SPORT] ⚽️"
+    }
+}
 ```
+
+### Detection Logic
+
+1. Read `campaign_name` from first row of CSV
+2. Exact match against known campaigns
+3. Fuzzy match (case-insensitive, substring matching)
+4. If no match found, skip file with error log
+
+**Benefits:**
+- ✅ Filename independent (any filename works)
+- ✅ No ambiguous number matching
+- ✅ Reliable and maintainable
+- ✅ Clear error messages
 
 ---
 
@@ -53,32 +71,6 @@ graph TD
 
 ### Casino & Sport Templates
 
-Maps CSV template names to timing categories in the Excel report:
-
-```mermaid
-graph LR
-    A["[S] 10 min sport basic wp"] --> A1[10min]
-    B["[S] 1h sport basic wp"] --> B1[1h]
-    C["[S] 1d 2 BLOCKS"] --> C1[1d]
-    D["[S] 3d casino 1st dep"] --> D1[4d]
-    E["[S] 5d casino 1st dep"] --> E1[6d]
-    F["[S] 7d 2 BLOCKS SPORT"] --> F1[8d]
-    G["[S] 10d A: freebet"] --> G1[10d]
-    H["[S] 10d b: 150%sport"] --> G1
-    I["[S] 12d A: freebet"] --> I1[12d]
-    J["[S] 12d b: 150%sport"] --> I1
-    
-    style A1 fill:#909090
-    style B1 fill:#909090
-    style C1 fill:#909090
-    style D1 fill:#909090
-    style E1 fill:#909090
-    style F1 fill:#909090
-    style G1 fill:#909090
-    style I1 fill:#909090
-```
-
-**Python Mapping:**
 ```python
 CASINOSPORT_MAPPINGS = {
     "[S] 10 min sport basic wp": "10min",
@@ -96,24 +88,6 @@ CASINOSPORT_MAPPINGS = {
 
 ### Retention Templates
 
-Maps CSV template names to timing categories:
-
-```mermaid
-graph LR
-    A[Day 3] --> A1[3d]
-    B[Day 4] --> B1[4d]
-    C[Day 6] --> C1[6d]
-    D[Day 8] --> D1[8d]
-    E[Day 10] --> E1[10d]
-    
-    style A1 fill:#808080
-    style B1 fill:#808080
-    style C1 fill:#808080
-    style D1 fill:#808080
-    style E1 fill:#808080
-```
-
-**Python Mapping:**
 ```python
 RETENTION_MAPPINGS = {
     "Day 3": "3d",
@@ -126,43 +100,9 @@ RETENTION_MAPPINGS = {
 
 ---
 
-## Data Processing Flow
+## Week Boundaries
 
-```mermaid
-flowchart TD
-    A[CSV Files] --> B[Read & Parse CSV]
-    B --> C{Detect Campaign Type}
-    
-    C -->|Contains S prefix| D[Casino/Sport Mappings]
-    C -->|Contains Day X| E[Retention Mappings]
-    
-    D --> F[Filter Templates]
-    E --> F
-    
-    F --> G[Aggregate by Week Boundaries]
-    
-    G --> H[Week 1<br/>29.12-04.01]
-    G --> I[Week 2<br/>05.01-11.01]
-    G --> J[Week 3<br/>12.01-18.01]
-    G --> K[Week 4<br/>19.01-25.01]
-    G --> L[Week 5<br/>26.01-01.02]
-    G --> M[Week 6<br/>02.02-08.02]
-    
-    H --> N[Calculate Percentages]
-    I --> N
-    J --> N
-    K --> N
-    L --> N
-    M --> N
-    
-    N --> O[Group by Timing Category]
-    O --> P[Generate Excel Report]
-    
-    style A fill:#a0a0a0
-    style P fill:#707070
-```
-
-### Week Boundaries
+Shared across all report types (from `plugins/constants.py`):
 
 ```python
 WEEKLY_BOUNDARIES = [
@@ -172,6 +112,8 @@ WEEKLY_BOUNDARIES = [
     ("2026-01-19", "2026-01-25"),  # Week 4
     ("2026-01-26", "2026-02-01"),  # Week 5
     ("2026-02-02", "2026-02-08"),  # Week 6
+    ("2026-02-09", "2026-02-15"),  # Week 7
+    ("2026-02-16", "2026-02-22"),  # Week 8
 ]
 ```
 
@@ -179,69 +121,19 @@ WEEKLY_BOUNDARIES = [
 
 ## Target Excel Structure
 
-### Sheet Layout
+### Week Column Mappings
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ WP Chains Sport                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│     A          B              C       D         E    F    G  ... │
-│                                              Week6 Week5 Week4   │
-│                                              02.02 26.01 19.01   │
-├─────────────────────────────────────────────────────────────────┤
-│ Row 3: Signed up                                                │
-│        casino+sport A/B Reg_No_Dep                              │
-│                      10min   Sent      100  200  300            │
-│                              Delivered  95  190  285            │
-│                              Opened     20   40   60            │
-│                              Clicked     5   10   15            │
-│                              Unsubscribed 1    2    3            │
-│                              Pct Delivered 95% 95% 95%          │
-│                      1h      ...                                │
-│                      1d      ...                                │
-│                      4d      ...                                │
-│                      6d      ...                                │
-│                      8d      ...                                │
-│                      10d     ...                                │
-│                      12d     ...                                │
-├─────────────────────────────────────────────────────────────────┤
-│ Row 75: deposits_quantity is 1                                  │
-│         Ret 1 dep [SPORT] ⚽️                                    │
-│                      3d      Sent      ...                      │
-│                      4d      ...                                │
-│                      6d      ...                                │
-│                      8d      ...                                │
-│                      10d     ...                                │
-├─────────────────────────────────────────────────────────────────┤
-│ Row 123: deposits_quantity is 2                                 │
-│          Ret 2 dep [SPORT] ⚽️                                   │
-│                      3d      Sent      ...                      │
-│                      4d      ...                                │
-│                      6d      ...                                │
-│                      8d      ...                                │
-│                      10d     ...                                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Section Structure
-
-```mermaid
-graph TD
-    A[WP Chains Sport Sheet] --> B[Section 1: Signed up<br/>Row 3]
-    A --> C[Section 2: Retention 1<br/>Row 75]
-    A --> D[Section 3: Retention 2<br/>Row 123]
-    
-    B --> B1[Casino/Sport Campaigns<br/>10min, 1h, 1d, 4d, 6d, 8d, 10d, 12d]
-    C --> C1[Retention Campaigns<br/>3d, 4d, 6d, 8d, 10d]
-    D --> D1[Retention Campaigns<br/>3d, 4d, 6d, 8d, 10d]
-    
-    B1 --> B2[6 Metrics per Timing Block]
-    C1 --> C2[6 Metrics per Timing Block]
-    D1 --> D2[6 Metrics per Timing Block]
-    
-    style B fill:#a0a0a0
-    style C fill:#909090
-    style D fill:#808080
+```python
+WEEK_COLUMNS = {
+    'week1': 'P',  # Week 1 (29.12)
+    'week2': 'O',  # Week 2 (05.01)
+    'week3': 'N',  # Week 3 (12.01)
+    'week4': 'M',  # Week 4 (19.01)
+    'week5': 'L',  # Week 5 (26.01)
+    'week6': 'K',  # Week 6 (02.02)
+    'week7': 'J',  # Week 7 (09.02)
+    'week8': 'I'   # Week 8 (16.02)
+}
 ```
 
 ### Timing Block Row Mappings
@@ -273,58 +165,23 @@ Each timing block contains 6 rows of metrics:
 | +4 | Unsubscribed | Total unsubscribes |
 | +5 | Pct Delivered | Percentage delivered (calculated) |
 
-### Week Column Mappings
-
-```python
-WEEK_COLUMNS = {
-    'week1': 'J',  # Week 1 (29.12)
-    'week2': 'I',  # Week 2 (05.01)
-    'week3': 'H',  # Week 3 (12.01)
-    'week4': 'G',  # Week 4 (19.01)
-    'week5': 'F',  # Week 5 (26.01)
-    'week6': 'E'   # Week 6 (02.02)
-}
-```
-
 ---
 
 ## Week Replacement Feature
-
-### Overview
-
-Updates specific week columns in existing Excel reports without regenerating the entire file.
-
-```mermaid
-flowchart LR
-    A[Generated Report] --> B[Read Source Column]
-    C[Existing Report] --> D[Read Target Sheet]
-    
-    B --> E[Extract Week Data]
-    D --> F[Find Target Column]
-    
-    E --> G[Copy Formatting]
-    F --> G
-    
-    G --> H[Match Campaign/Template/Metric]
-    H --> I[Copy Values]
-    I --> J[Save Updated Report]
-    
-    style A fill:#a0a0a0
-    style C fill:#909090
-    style J fill:#707070
-```
 
 ### Week Column Mappings
 
 ```python
 WEEK_MAPPINGS = {
     'source': {
-        '01': 'J',   # Generated report columns
-        '02': 'I',
-        '03': 'H',
-        '04': 'G',
-        '05': 'F',
-        '06': 'E'
+        '01': 'P',   # Generated report columns
+        '02': 'O',
+        '03': 'N',
+        '04': 'M',
+        '05': 'L',
+        '06': 'K',
+        '07': 'J',
+        '08': 'I'
     },
     'target': {
         '01': 'BF',  # Existing report columns
@@ -332,30 +189,11 @@ WEEK_MAPPINGS = {
         '03': 'BD',
         '04': 'BC',
         '05': 'BB',
-        '06': 'BA'
+        '06': 'BA',
+        '07': 'AZ',
+        '08': 'AY'
     }
 }
-```
-
----
-
-## File Naming Requirements
-
-### Critical: Avoid Ambiguous Numbers
-
-File names must not contain ambiguous numeric patterns:
-
-❌ **Bad Examples:**
-```
-ret1dep19-2.csv    # Contains "1" in multiple places
-ret2dep19-2.csv    # Contains both "1" and "2"
-```
-
-✅ **Good Examples:**
-```
-abdep.csv
-ret1dep.csv
-ret2dep.csv
 ```
 
 ---
@@ -364,12 +202,14 @@ ret2dep.csv
 
 ### Key Features
 
-✅ Multi-file processing (3 CSV files)  
-✅ Template mapping (15 unique templates)  
-✅ Week aggregation (6 weekly periods)  
-✅ Percentage calculation  
-✅ Week replacement  
-✅ Data validation  
+✅ **Multi-file processing** - Handles 3 CSV files (casino/sport, ret1, ret2)  
+✅ **Campaign-based detection** - Uses campaign_name column, not filenames  
+✅ **Template mapping** - Maps 15 unique templates to timing categories  
+✅ **Week aggregation** - Groups data into 8 weekly periods  
+✅ **Percentage calculation** - Auto-calculates delivery/open/click/conversion rates  
+✅ **Week replacement** - Updates specific weeks in existing reports  
+✅ **Data validation** - Checks template matches and suggests corrections  
+✅ **Section routing** - Places data in correct Excel sections based on campaign
 
 ### Output
 
@@ -377,4 +217,19 @@ ret2dep.csv
 - **Sections:** 3 (Signed up, Retention 1, Retention 2)
 - **Timing Blocks:** 8 for casino, 5 for retention
 - **Metrics per Block:** 6 rows
-- **Week Columns:** 6 (E-J in generated, BA-BF in existing)
+- **Week Columns:** 8 (I-P in generated, AY-BF in existing)
+- **Total Values Copied (Week Replacement):** ~90 values
+- **Detection Method:** Campaign-based (from campaign_name column)
+
+### Metrics Tracked
+
+- **Sent** - Total emails sent
+- **Delivered** - Total emails delivered
+- **Opened** - Total emails opened
+- **Clicked** - Total clicks
+- **Converted** - Total conversions
+- **Unsubscribed** - Total unsubscribes
+- **% Delivered** - Delivered / Sent × 100
+- **% Open** - Opened / Delivered × 100
+- **% Click** - Clicked / Delivered × 100
+- **% CR** - Converted / Delivered × 100
