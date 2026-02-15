@@ -1,0 +1,20 @@
+# Prevent secrets from being committed
+*.key filter=secret
+*.pem filter=secret
+.env filter=secret
+
+# Text file handling
+* text=auto
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
