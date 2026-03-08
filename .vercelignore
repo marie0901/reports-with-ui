@@ -1,0 +1,22 @@
+# Python
+api/venv/
+api/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node
+node_modules/
+.next/
+.turbopack/
+
+# Development
+.kiro/
+docs/
+*.log
+.DS_Store
+
+# Storage (will be empty on Vercel)
+api/storage/uploads/
+api/storage/outputs/

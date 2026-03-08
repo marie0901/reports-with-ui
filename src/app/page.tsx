@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Upload, FileUp, FileType, CheckCircle, AlertCircle, Loader2, Download, FileSpreadsheet, Layers, Info } from 'lucide-react';
+import { Upload, FileUp, FileType, CheckCircle, AlertCircle, Loader2, Download, FileSpreadsheet, Layers, Info, Plus } from 'lucide-react';
 
 interface InputSlot {
   id: string;
@@ -138,10 +138,18 @@ export default function Home() {
           
           {/* Configuration Panel */}
           <div className="lg:col-span-4 card border-gray-800 bg-gray-900/50 backdrop-blur-xl h-fit">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <FileType className="w-5 h-5 text-blue-400" />
-              Settings
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <FileType className="w-5 h-5 text-blue-400" />
+                Settings
+              </h2>
+              <a 
+                href="/builder" 
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-700"
+              >
+                <Plus size={12} /> Builder
+              </a>
+            </div>
             
             <div className="space-y-6">
               <div>
