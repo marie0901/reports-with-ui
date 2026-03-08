@@ -1,12 +1,12 @@
 """Report plugins package."""
 
 from .base import BaseReportPlugin, register_plugin, get_plugin, list_plugins
-from .implementations import ABReportPlugin
+# Import implementations to trigger registration
+from .implementations import *
 
 __all__ = [
     "BaseReportPlugin",
     "register_plugin",
     "get_plugin", 
     "list_plugins",
-    "ABReportPlugin",
 ]
