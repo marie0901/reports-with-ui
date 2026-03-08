@@ -22,12 +22,17 @@ __pycache__/
 venv/
 env/
 ENV/
+api/venv/
+*.pyc
+*.pyo
+*.pyd
 
 # Node
 node_modules/
 npm-debug.log*
 .npm
 .next/
+.turbopack/
 
 # IDE
 .vscode/
@@ -53,3 +58,14 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+# Development
+.kiro/
+docs/
+
+# Storage
+api/storage/uploads/
+api/storage/outputs/
+
+# Vercel
+.vercel/
