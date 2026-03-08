@@ -64,7 +64,8 @@ CAMPAIGN_SECTION_MAPPINGS = {
 # Week column mappings (52 weeks, F-BE, reverse chronological)
 WEEK_COLUMNS = {
     '01': 'BE', '02': 'BD', '03': 'BC', '04': 'BB',
-    '05': 'BA', '06': 'AZ', '07': 'AY', '08': 'AX'
+    '05': 'BA', '06': 'AZ', '07': 'AY', '08': 'AX',
+    '09': 'AW', '10': 'AV', '11': 'AU', '12': 'AT'
 }
 
 

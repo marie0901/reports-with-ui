@@ -37,7 +37,8 @@ CASINOSPORT_MAPPINGS = {
 
 METRICS = ["sent", "delivered", "opened", "clicked", "converted", "unsubscribed"]
 WEEK_COLUMNS = {
-    'week1': 'P', 'week2': 'O', 'week3': 'N', 'week4': 'M', 'week5': 'L', 'week6': 'K', 'week7': 'J', 'week8': 'I'
+    'week1': 'P', 'week2': 'O', 'week3': 'N', 'week4': 'M', 'week5': 'L', 'week6': 'K', 'week7': 'J', 'week8': 'I',
+    'week9': 'H', 'week10': 'G', 'week11': 'F', 'week12': 'E'
 }
 TIMING_BLOCKS = {
     "10min": {"casino_rows": [3, 8]},
@@ -53,10 +54,12 @@ TIMING_BLOCKS = {
 
 WEEK_MAPPINGS = {
     'source': {
-        '01': 'P', '02': 'O', '03': 'N', '04': 'M', '05': 'L', '06': 'K', '07': 'J', '08': 'I'
+        '01': 'P', '02': 'O', '03': 'N', '04': 'M', '05': 'L', '06': 'K', '07': 'J', '08': 'I',
+        '09': 'H', '10': 'G', '11': 'F', '12': 'E'
     },
     'target': {
-        '01': 'BF', '02': 'BE', '03': 'BD', '04': 'BC', '05': 'BB', '06': 'BA', '07': 'AZ', '08': 'AY'
+        '01': 'BF', '02': 'BE', '03': 'BD', '04': 'BC', '05': 'BB', '06': 'BA', '07': 'AZ', '08': 'AY',
+        '09': 'AX', '10': 'AW', '11': 'AV', '12': 'AU'
     }
 }
 
